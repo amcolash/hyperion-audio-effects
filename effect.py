@@ -25,8 +25,10 @@ stream = p.open(
 
 """ Define some variables """
 sleepTime = 0.5
-rgb1 = [0, 255, 100]
-cycle = 0
+hsv1 = [np.random.random(), 1.0, 0.0]
+cycle = 0.0
+shift_rate = 1.0
+timeout = 0.0
 
 """ The effect loop """
 while not hyperion.abort():
@@ -68,7 +70,10 @@ while not hyperion.abort():
         if (new_bands[i] == -inf):
             new_bands[i] = 0
 
-        BAND_DATA[i] = BAND_DATA[i] * 0.9 + new_bands[i] * 0.1
+        if new_bands[i] > 30 and i > 6:
+            new_bands[i] += 50
+
+        BAND_DATA[i] = BAND_DATA[i] * 0.8 + new_bands[i] * 0.2
         BAND_DATA[i] = min(max(0, BAND_DATA[i]), 256)
 
     # print BAND_DATA
@@ -91,14 +96,22 @@ while not hyperion.abort():
 
         # print index
 
-        brightness = BAND_DATA[BANDS - 1 - index] / 256.0
+        brightness = max(0, min(BAND_DATA[BANDS - 1 - index] / 256.0, 1.0))
+        # brightness = (brightness ** 2.0) * (3.0 - 2.0 * brightness)
+        if brightness < 0.5:
+            brightness = math.sqrt(0.75 * brightness)
+        
+        color = colorsys.hsv_to_rgb((hsv1[0] + cycle) % 1.0, hsv1[1], brightness)
+        color = [int(c * 255) for c in color]
+
+        led_data += bytearray(color)
+
         # brightness = (float(index) / (hyperion.ledCount - 1))
-        r = int(max(0, min(rgb1[0] * brightness, 255)))
-        g = int(max(0, min(rgb1[1] * brightness, 255)))
-        b = int(max(0, min(rgb1[2] * brightness, 255)))
+        # r = int(max(0, min(rgb1[0] * brightness, 255)))
+        # g = int(max(0, min(rgb1[1] * brightness, 255)))
+        # b = int(max(0, min(rgb1[2] * brightness, 255)))
 
         # print r, g, b, brightness
-        
 
         # if index == 0:
         #     r = 255
@@ -111,12 +124,26 @@ while not hyperion.abort():
         #     g = 0
         #     b = 255
         
-        led_data += bytearray((r, g, b))
+        # led_data += bytearray((r, g, b))
+
+    if timeout > 0:
+        timeout -= 0.05
+
+    if shift_rate > 1.0:
+        shift_rate -= 5
+    if shift_rate < 1.0:
+        shift_rate = 1.0
+
+    if  timeout <= 0 and np.sum(BAND_DATA) > BANDS * 150:
+        print "shiftin it"
+        shift_rate = 100
+        timeout = 20.0
+
 
     """ send the data to hyperion """
     hyperion.setColor(led_data)
 
-    cycle += 0.07
+    cycle += 0.00002 * shift_rate
 
     """ sleep for a while """
     # time.sleep(sleepTime)

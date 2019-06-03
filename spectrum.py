@@ -8,6 +8,7 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 import matplotlib.animation
+from numpy import inf
 
 RATE = 44100
 BUFFER = 882
@@ -71,7 +72,7 @@ def update_line(i):
       new_bands[band] += abs(data[i])
       count[band] += 1
 
-    # print count
+    # print size, BANDS, count
 
     # smooth out the last point
     if count[BANDS - 1] < band_size:
@@ -81,13 +82,16 @@ def update_line(i):
 
     for i in range(BANDS):
       new_bands[i] = (50 - ((new_bands[i] / band_size ))) * 7
+      if (new_bands[i] == inf):
+        new_bands[i] = 256
+      if (new_bands[i] == -inf):
+        new_bands[i] = 0
 
-      if BAND_DATA[i] != float('inf') and BAND_DATA[i] != float('-inf'):
-        BAND_DATA[i] = BAND_DATA[i] * 0.9 + new_bands[i] * 0.1
-      else:
-        BAND_DATA[i] = new_bands[i]
+      if new_bands[i] > 30:
+        new_bands[i] += 50
 
-      BAND_DATA[i] = max(0, BAND_DATA[i])
+      BAND_DATA[i] = BAND_DATA[i] * 0.93 + new_bands[i] * 0.07
+      BAND_DATA[i] = min(max(0, BAND_DATA[i]), 256)
 
     line2.set_data(np.arange(0, BANDS), BAND_DATA)
     # print BAND_DATA
@@ -95,7 +99,7 @@ def update_line(i):
     return (line1,line2,)
 
 line_ani = matplotlib.animation.FuncAnimation(
-    fig, update_line, init_func=init_line, interval=25, blit=True
+    fig, update_line, init_func=init_line, interval=13, blit=True
 )
 
 plt.show()

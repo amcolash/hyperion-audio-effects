@@ -2,6 +2,7 @@ import pyaudio
 import numpy as np
 import math
 import time
+from numpy import inf
 
 RATE = 44100
 BUFFER = 882
@@ -49,12 +50,12 @@ while True:
 
   for i in range(BANDS):
     new_bands[i] = (50 - ((new_bands[i] / band_size ))) * 7
+    if (new_bands[i] == inf):
+        new_bands[i] = 256
+    if (new_bands[i] == -inf):
+        new_bands[i] = 0
 
-    if BAND_DATA[i] != float('inf') and BAND_DATA[i] != float('-inf'):
-      BAND_DATA[i] = BAND_DATA[i] * 0.9 + new_bands[i] * 0.1
-    else:
-      BAND_DATA[i] = new_bands[i]
-
-    BAND_DATA[i] = max(0, BAND_DATA[i])
+    BAND_DATA[i] = BAND_DATA[i] * 0.9 + new_bands[i] * 0.1
+    BAND_DATA[i] = min(max(0, BAND_DATA[i]), 256)
 
   print BAND_DATA
