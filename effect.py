@@ -30,6 +30,8 @@ cycle = 0.0
 shift_rate = 1.0
 timeout = 0.0
 
+prev = 0.0
+
 """ The effect loop """
 while not hyperion.abort():
     """ The algorithm to calculate the change in color """
@@ -73,10 +75,17 @@ while not hyperion.abort():
         if new_bands[i] > 30 and i > 6:
             new_bands[i] += 50
 
-        BAND_DATA[i] = BAND_DATA[i] * 0.8 + new_bands[i] * 0.2
+        BAND_DATA[i] = BAND_DATA[i] * 0.9 + new_bands[i] * 0.1
         BAND_DATA[i] = min(max(0, BAND_DATA[i]), 256)
 
     # print BAND_DATA
+
+    totalSum = np.sum(BAND_DATA)
+    totalBrightness = totalSum / (BANDS - 4) / 256.0
+    totalBrightness = 0.05 * totalBrightness + 0.95 * prev
+    prev = totalBrightness
+
+    # print totalBrightness
 
     middle_offset = math.floor(hyperion.horizontal / 2)
     for i in range(hyperion.ledCount):
@@ -85,7 +94,7 @@ while not hyperion.abort():
         index = i
         if not hyperion.clockwise_direction and index != 0:
             index = hyperion.ledCount - index
-        
+
         if hyperion.first_led_offset != 0:
             mult = 1 if hyperion.clockwise_direction else -1
             index = (index + (mult * hyperion.first_led_offset)) % hyperion.ledCount
@@ -98,52 +107,39 @@ while not hyperion.abort():
 
         brightness = max(0, min(BAND_DATA[BANDS - 1 - index] / 256.0, 1.0))
         # brightness = (brightness ** 2.0) * (3.0 - 2.0 * brightness)
+        # TODO: dimmer blues because it seems that the transform isn't working correctly?
+
+        # not actually correct but makes things look a bit more interesting
         if brightness < 0.5:
             brightness = math.sqrt(0.75 * brightness)
-        
+
+        brightness = (3 * brightness + 0.1) * totalBrightness
+        brightness = min(max(0.2, brightness), 1.0)
+
         color = colorsys.hsv_to_rgb((hsv1[0] + cycle) % 1.0, hsv1[1], brightness)
         color = [int(c * 255) for c in color]
 
         led_data += bytearray(color)
 
-        # brightness = (float(index) / (hyperion.ledCount - 1))
-        # r = int(max(0, min(rgb1[0] * brightness, 255)))
-        # g = int(max(0, min(rgb1[1] * brightness, 255)))
-        # b = int(max(0, min(rgb1[2] * brightness, 255)))
+    # TODO: Shift color faster (always) based on a higher sum of data?
 
-        # print r, g, b, brightness
-
-        # if index == 0:
-        #     r = 255
-        #     g = 0
-        #     b = 0
-
-        # if index == hyperion.ledCount - 1:
-        # if index == BANDS - 1:
-        #     r = 0
-        #     g = 0
-        #     b = 255
-        
-        # led_data += bytearray((r, g, b))
-
-    if timeout > 0:
-        timeout -= 0.05
-
-    if shift_rate > 1.0:
-        shift_rate -= 5
-    if shift_rate < 1.0:
-        shift_rate = 1.0
+    timeout = max(0, timeout - 0.05)
+    shift_rate = max(1.0, shift_rate - 5.0)
 
     if  timeout <= 0 and np.sum(BAND_DATA) > BANDS * 150:
         print "shiftin it"
         shift_rate = 100
         timeout = 20.0
 
+    shift_rate += 0.3
 
     """ send the data to hyperion """
     hyperion.setColor(led_data)
 
-    cycle += 0.00002 * shift_rate
+    cycle += 0.00003 * shift_rate
 
     """ sleep for a while """
     # time.sleep(sleepTime)
+
+# TODO: Cleanup
+# stream.close()
